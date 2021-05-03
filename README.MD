@@ -1,3 +1,3 @@
 # StayHydrated
 
-Hier entsteht ein Bewässerungsystem für unsere Zimmerpflanzen.
+Hier entsteht ein automatisches Bewässerungsystem für unsere Zimmerpflanzen.
