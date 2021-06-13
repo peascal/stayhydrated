@@ -5,7 +5,8 @@
 
 WebServer server(80);
 
-String SendHTML(){
+String SendHTML()
+{
   String html = "<!DOCTYPE html> <html>\n";
   html +="<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, user-scalable=no\">\n";
   html +="<title>Stay hydrated</title>\n";
@@ -18,11 +19,11 @@ String SendHTML(){
   return html;
 }
 
-void handle_OnConnect() {
+void handle_OnConnect()
+{
   Serial.println("server requested");
   server.send(200, "text/html", SendHTML()); 
 }
-
 
 void pumpOn()
 {
@@ -33,9 +34,12 @@ void pumpOff()
 {
   digitalWrite(PIN_PUMP, HIGH);
 }
+
 void ventilOpen(int id_int)
 {
   int ventil_pin;
+
+  ventil_pin = -1;
 
   switch (id_int)
   {
@@ -53,13 +57,17 @@ void ventilOpen(int id_int)
       break;
   }
   
-  digitalWrite(ventil_pin, LOW);
+  if (ventil_pin != -1) {
+    digitalWrite(ventil_pin, LOW);
+  }
 }
 
 void ventilClose(int id_int)
 {
   int ventil_pin;
 
+  ventil_pin = -1;
+
   switch (id_int)
   {
     case 1:
@@ -75,11 +83,13 @@ void ventilClose(int id_int)
       ventil_pin = PIN_VENTIL_4;
       break;
   }
-  
-  digitalWrite(ventil_pin, HIGH);
+
+  if (ventil_pin != -1) {
+    digitalWrite(ventil_pin, HIGH);
+  }
 }
 
-void hydrate (String id)
+void hydrate(String id)
 {
   int id_int;
   id_int = id.toInt();
@@ -91,7 +101,6 @@ void hydrate (String id)
 
   pumpOff();
   ventilClose(id_int);
-  
 }
 
 void handle_Hydrate()
@@ -109,9 +118,6 @@ void handle_Hydrate()
   server.send(200, "text/html", message);
 }
 
-
-
-
 void setup()
 {
   Serial.begin(115200);
@@ -128,10 +134,6 @@ void setup()
   ventilClose(2);
   ventilClose(3);
   ventilClose(4);
-
-
-
-
 
   WiFi.begin(ssid, password);
 
