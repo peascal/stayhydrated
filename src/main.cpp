@@ -23,14 +23,19 @@ void handle_OnConnect() {
   server.send(200, "text/html", SendHTML()); 
 }
 
-void hydrate (String id)
+
+void pumpOn()
 {
-  int id_int;
+  digitalWrite(PIN_PUMP, LOW);
+}
+
+void pumpOff()
+{
+  digitalWrite(PIN_PUMP, HIGH);
+}
+void ventilOpen(int id_int)
+{
   int ventil_pin;
-
-  ventil_pin = NULL;
-
-  id_int = id.toInt();
 
   switch (id_int)
   {
@@ -47,18 +52,46 @@ void hydrate (String id)
       ventil_pin = PIN_VENTIL_4;
       break;
   }
+  
+  digitalWrite(ventil_pin, LOW);
+}
 
-  if (ventil_pin == NULL) {
-    return;
+void ventilClose(int id_int)
+{
+  int ventil_pin;
+
+  switch (id_int)
+  {
+    case 1:
+      ventil_pin = PIN_VENTIL_1;
+      break;
+    case 2:
+      ventil_pin = PIN_VENTIL_2;
+      break;
+    case 3:
+      ventil_pin = PIN_VENTIL_3;
+      break;
+    case 4:
+      ventil_pin = PIN_VENTIL_4;
+      break;
   }
-
+  
   digitalWrite(ventil_pin, HIGH);
-  digitalWrite(PIN_PUMP, HIGH);
+}
+
+void hydrate (String id)
+{
+  int id_int;
+  id_int = id.toInt();
+
+  ventilOpen(id_int);
+  pumpOn();
 
   delay(2 * 1000);
 
-  digitalWrite(PIN_PUMP, LOW);
-  digitalWrite(ventil_pin, LOW);
+  pumpOff();
+  ventilClose(id_int);
+  
 }
 
 void handle_Hydrate()
@@ -76,6 +109,9 @@ void handle_Hydrate()
   server.send(200, "text/html", message);
 }
 
+
+
+
 void setup()
 {
   Serial.begin(115200);
@@ -86,6 +122,16 @@ void setup()
   pinMode(PIN_VENTIL_2, OUTPUT);
   pinMode(PIN_VENTIL_3, OUTPUT);
   pinMode(PIN_VENTIL_4, OUTPUT);
+
+  pumpOff();
+  ventilClose(1);
+  ventilClose(2);
+  ventilClose(3);
+  ventilClose(4);
+
+
+
+
 
   WiFi.begin(ssid, password);
 
