@@ -23,10 +23,69 @@ void handle_OnConnect() {
   server.send(200, "text/html", SendHTML()); 
 }
 
+void hydrate (String id)
+{
+  int id_int;
+  int ventil_pin;
+
+  ventil_pin = NULL;
+
+  id_int = id.toInt();
+
+  switch (id_int)
+  {
+    case 1:
+      ventil_pin = PIN_VENTIL_1;
+      break;
+    case 2:
+      ventil_pin = PIN_VENTIL_2;
+      break;
+    case 3:
+      ventil_pin = PIN_VENTIL_3;
+      break;
+    case 4:
+      ventil_pin = PIN_VENTIL_4;
+      break;
+  }
+
+  if (ventil_pin == NULL) {
+    return;
+  }
+
+  digitalWrite(ventil_pin, HIGH);
+  digitalWrite(PIN_PUMP, HIGH);
+
+  delay(2 * 1000);
+
+  digitalWrite(PIN_PUMP, LOW);
+  digitalWrite(ventil_pin, LOW);
+}
+
+void handle_Hydrate()
+{
+  String message;
+  String id;
+
+  message = "plant id = ";
+  id = server.arg("plant");
+
+  message += id;
+
+  hydrate(id);
+
+  server.send(200, "text/html", message);
+}
+
 void setup()
 {
   Serial.begin(115200);
   Serial.println();
+
+  pinMode(PIN_PUMP, OUTPUT);
+  pinMode(PIN_VENTIL_1, OUTPUT);
+  pinMode(PIN_VENTIL_2, OUTPUT);
+  pinMode(PIN_VENTIL_3, OUTPUT);
+  pinMode(PIN_VENTIL_4, OUTPUT);
 
   WiFi.begin(ssid, password);
 
@@ -43,6 +102,7 @@ void setup()
   Serial.println(WiFi.localIP());
 
   server.on("/", handle_OnConnect);
+  server.on("/hydrate", handle_Hydrate);
 
   server.begin();
   Serial.println("HTTP server started");
