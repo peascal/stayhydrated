@@ -5,6 +5,8 @@
 
 WebServer server(80);
 
+
+
 String SendHTML()
 {
   String html = "<!DOCTYPE html> <html>\n";
@@ -128,6 +130,9 @@ void setup()
   pinMode(PIN_VENTIL_2, OUTPUT);
   pinMode(PIN_VENTIL_3, OUTPUT);
   pinMode(PIN_VENTIL_4, OUTPUT);
+  pinMode(PIN_ULTRASCHALL_ECHO, INPUT);
+  pinMode(PIN_ULTRASCHALL_TRIGGER, OUTPUT);
+  
 
   pumpOff();
   ventilClose(1);
@@ -155,7 +160,76 @@ void setup()
   server.begin();
   Serial.println("HTTP server started");
 }
+int getWaterLevelInCm()
+{
+  const int SENSOR_MAX_RANGE = 300; // in cm
+  unsigned long duration;
+  unsigned int distance;
+  int totalDistance = 0;
+  int success = 0;
 
-void loop() {
+  for (int i = 0; i < 5; i++)
+  {
+    digitalWrite(PIN_ULTRASCHALL_TRIGGER, LOW);
+    delayMicroseconds(2);
+
+    digitalWrite(PIN_ULTRASCHALL_TRIGGER, HIGH);
+    delayMicroseconds(10);
+
+    duration = pulseIn(PIN_ULTRASCHALL_ECHO, HIGH);
+    distance = duration/58;
+    if (distance < SENSOR_MAX_RANGE && distance > 2) 
+    {
+      totalDistance += distance;
+      success++;
+    }
+  }
+  if (success == 0)
+    {
+    return 0;
+    }
+  return totalDistance / success;
+}
+
+int getMoisture(int id_int)
+{
+  int water = 1330;
+  int air = 3630;
+  int interval = (air - water) / 10;
+  int capaPin = -1; 
+  switch (id_int)
+  {
+    case 1:
+      capaPin = PIN_CAPA_1;
+      break;
+    case 2:
+      capaPin = PIN_CAPA_2;
+      break;
+    case 3:
+      capaPin = PIN_CAPA_3;
+      break;
+    case 4:
+      capaPin = PIN_CAPA_4;
+      break;
+  }
+  if (capaPin == -1)
+  {
+    return 0;
+  }
+  int moisture = (analogRead(capaPin) - water) / interval;
+  if (moisture < 1)
+  {
+    moisture = 1;
+  }
+  if (moisture > 10)
+  {
+    moisture = 10;
+  }
+  return moisture;
+}
+void loop() 
+{
   server.handleClient();
+ 
+  delay(1000);
 }
