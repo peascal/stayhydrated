@@ -12,3 +12,4 @@ const int PIN_CAPA_1 = 0;
 const int PIN_CAPA_2 = 0;
 const int PIN_CAPA_3 = 0;
 const int PIN_CAPA_4 = 0;
+const int MAX_WATERSURFACE_TO_ULTRASONIC_SENSOR_IN_CM = 0;

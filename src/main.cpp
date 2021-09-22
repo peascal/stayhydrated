@@ -14,8 +14,8 @@ String SendHTML()
   html +="<title>Stay hydrated</title>\n";
   html +="</head>\n";
   html +="<body>\n";
-  html +="<h1>ESP32 Web Server</h1>\n";
-  html +="<h3>Using Access Point(AP) Mode</h3>\n";
+  html +="<h1>Stay hydrated</h1>\n";
+  html +="<a href=\"https://github.com/peascal/stayhydrated\">Documentation and Bugs</a>\n";
   html +="</body>\n";
   html +="</html>\n";
   return html;
@@ -23,7 +23,6 @@ String SendHTML()
 
 void handle_OnConnect()
 {
-  Serial.println("server requested");
   server.send(200, "text/html", SendHTML()); 
 }
 
@@ -37,11 +36,41 @@ void pumpOff()
   digitalWrite(PIN_PUMP, HIGH);
 }
 
-void ventilOpen(int id_int)
+int getWaterLevelInCm()
 {
-  int ventil_pin;
+  const int SENSOR_MAX_RANGE = 300; // in cm
+  unsigned long duration;
+  unsigned int distance;
+  int totalDistance = 0;
+  int success = 0;
 
-  ventil_pin = -1;
+  for (int i = 0; i < 5; i++)
+  {
+    digitalWrite(PIN_ULTRASCHALL_TRIGGER, LOW);
+    delayMicroseconds(2);
+
+    digitalWrite(PIN_ULTRASCHALL_TRIGGER, HIGH);
+    delayMicroseconds(10);
+
+    duration = pulseIn(PIN_ULTRASCHALL_ECHO, HIGH);
+    distance = duration/58;
+    if (distance < SENSOR_MAX_RANGE && distance > 2) 
+    {
+      totalDistance += distance;
+      success++;
+    }
+  }
+  if (success == 0)
+  {
+    return 0;
+  }
+  return totalDistance / success;
+}
+
+
+bool ventilOpen(int id_int)
+{
+  int ventil_pin = -1;
 
   switch (id_int)
   {
@@ -57,18 +86,17 @@ void ventilOpen(int id_int)
     case 4:
       ventil_pin = PIN_VENTIL_4;
       break;
+    default:
+      return false;
   }
   
-  if (ventil_pin != -1) {
-    digitalWrite(ventil_pin, LOW);
-  }
+  digitalWrite(ventil_pin, LOW);
+  return true;
 }
 
-void ventilClose(int id_int)
+bool ventilClose(int id_int)
 {
-  int ventil_pin;
-
-  ventil_pin = -1;
+  int ventil_pin = -1;
 
   switch (id_int)
   {
@@ -84,25 +112,72 @@ void ventilClose(int id_int)
     case 4:
       ventil_pin = PIN_VENTIL_4;
       break;
+    default:
+      return false;
   }
 
-  if (ventil_pin != -1) {
-    digitalWrite(ventil_pin, HIGH);
-  }
+  digitalWrite(ventil_pin, HIGH);
+  return true;
 }
 
-void hydrate(String id)
-{
-  int id_int;
-  id_int = id.toInt();
+String hydrate(int id)
+{ 
+  if (getWaterLevelInCm() > MAX_WATERSURFACE_TO_ULTRASONIC_SENSOR_IN_CM) {
+    return "low water level";
+  }
 
-  ventilOpen(id_int);
+  if(ventilOpen(id) == false) {
+    return "ventil can not be opened";
+  }
+
   pumpOn();
 
   delay(2 * 1000);
 
   pumpOff();
-  ventilClose(id_int);
+  
+  if (ventilClose(id) == false) {
+    return "ventil can not be closed";
+  }
+
+  return "success";
+}
+
+
+int getMoisture(int id_int)
+{
+  int water = 1330;
+  int air = 3630;
+  int interval = (air - water) / 10;
+  int capaPin = -1; 
+  switch (id_int)
+  {
+    case 1:
+      capaPin = PIN_CAPA_1;
+      break;
+    case 2:
+      capaPin = PIN_CAPA_2;
+      break;
+    case 3:
+      capaPin = PIN_CAPA_3;
+      break;
+    case 4:
+      capaPin = PIN_CAPA_4;
+      break;
+    default:
+      return 0;
+  }
+
+  int moisture = (analogRead(capaPin) - water) / interval;
+  if (moisture < 1)
+  {
+    moisture = 1;
+  }
+  if (moisture > 10)
+  {
+    moisture = 10;
+  }
+  return moisture;
 }
 
 void handle_Hydrate()
@@ -110,14 +185,70 @@ void handle_Hydrate()
   String message;
   String id;
 
-  message = "plant id = ";
   id = server.arg("plant");
 
+  String successMessage = hydrate(id.toInt());
+
+  message = "{\"plant\":\"";
   message += id;
+  message += "\",";
 
-  hydrate(id);
+  if (successMessage == "success")
+  {
+    message += "\"status\":\"success\"}";
+  }
+  else
+  {
+    message += "\"status\":\"error\", \"message\": \"";
+    message += successMessage;
+    message += "\"}";
+  }
 
-  server.send(200, "text/html", message);
+  server.send(200, "application/json", message);
+}
+
+void handle_Waterlevel()
+{
+  String message;
+  int waterlevel = getWaterLevelInCm();
+
+  if (waterlevel == 0)
+  {
+    // no measurement results
+    message = "{\"status\":\"error\"}";
+  }
+  else
+  {
+    message = "{\"waterlevel\":";
+    message += waterlevel;
+    message += "}";
+  }
+  
+  server.send(200, "application/json", message);
+}
+
+void handle_Moisture()
+{
+  String message;
+  String id;
+
+  id = server.arg("id");
+
+  int moisture = getMoisture(id.toInt());
+
+  if (moisture == 0)
+  {
+    // sensor not found
+    message = "{\"status\":\"error\"}";
+  }
+  else
+  {
+    message = "{\"moisture\":";
+    message += moisture;
+    message += "}";
+  }
+
+  server.send(200, "application/json", message);
 }
 
 void setup()
@@ -156,80 +287,14 @@ void setup()
 
   server.on("/", handle_OnConnect);
   server.on("/hydrate", handle_Hydrate);
+  server.on("/waterlevel", handle_Waterlevel);
+  server.on("/moisture", handle_Moisture);
 
   server.begin();
   Serial.println("HTTP server started");
 }
-int getWaterLevelInCm()
-{
-  const int SENSOR_MAX_RANGE = 300; // in cm
-  unsigned long duration;
-  unsigned int distance;
-  int totalDistance = 0;
-  int success = 0;
 
-  for (int i = 0; i < 5; i++)
-  {
-    digitalWrite(PIN_ULTRASCHALL_TRIGGER, LOW);
-    delayMicroseconds(2);
-
-    digitalWrite(PIN_ULTRASCHALL_TRIGGER, HIGH);
-    delayMicroseconds(10);
-
-    duration = pulseIn(PIN_ULTRASCHALL_ECHO, HIGH);
-    distance = duration/58;
-    if (distance < SENSOR_MAX_RANGE && distance > 2) 
-    {
-      totalDistance += distance;
-      success++;
-    }
-  }
-  if (success == 0)
-    {
-    return 0;
-    }
-  return totalDistance / success;
-}
-
-int getMoisture(int id_int)
-{
-  int water = 1330;
-  int air = 3630;
-  int interval = (air - water) / 10;
-  int capaPin = -1; 
-  switch (id_int)
-  {
-    case 1:
-      capaPin = PIN_CAPA_1;
-      break;
-    case 2:
-      capaPin = PIN_CAPA_2;
-      break;
-    case 3:
-      capaPin = PIN_CAPA_3;
-      break;
-    case 4:
-      capaPin = PIN_CAPA_4;
-      break;
-  }
-  if (capaPin == -1)
-  {
-    return 0;
-  }
-  int moisture = (analogRead(capaPin) - water) / interval;
-  if (moisture < 1)
-  {
-    moisture = 1;
-  }
-  if (moisture > 10)
-  {
-    moisture = 10;
-  }
-  return moisture;
-}
 void loop() 
 {
   server.handleClient();
- 
-  delay(1000);
 }
