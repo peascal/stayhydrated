@@ -250,6 +250,17 @@ void handle_Moisture()
 
   server.send(200, "application/json", message);
 }
+void bigbrain()
+{
+  for (int i=1; i<=4; i++)
+  {
+    if(getMoisture(i) >= 6)
+    {
+      hydrate(i);
+    }
+  }
+}
+
 
 void setup()
 {
@@ -303,4 +314,6 @@ void setup()
 void loop() 
 {
   server.handleClient();
+  bigbrain();
+  
 }
