@@ -5,8 +5,6 @@
 
 WebServer server(80);
 
-
-
 String SendHTML()
 {
   String html = "<!DOCTYPE html> <html>\n";
@@ -256,6 +254,7 @@ void setup()
   Serial.begin(115200);
   Serial.println();
 
+  pinMode(2, OUTPUT);
   pinMode(PIN_PUMP, OUTPUT);
   pinMode(PIN_VENTIL_1, OUTPUT);
   pinMode(PIN_VENTIL_2, OUTPUT);
@@ -276,8 +275,13 @@ void setup()
   Serial.print("Connecting");
 
   while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
     Serial.print(".");
+
+    // blink blue led when connecting
+    digitalWrite(2, HIGH);
+    delay(250);
+    digitalWrite(2, LOW);
+    delay(250);
   }
 
   Serial.println();
