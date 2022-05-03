@@ -26,11 +26,13 @@ void handle_OnConnect()
 
 void pumpOn()
 {
+  digitalWrite(2, HIGH);
   digitalWrite(PIN_PUMP, LOW);
 }
 
 void pumpOff()
 {
+  digitalWrite(2, LOW);
   digitalWrite(PIN_PUMP, HIGH);
 }
 
