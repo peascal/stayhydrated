@@ -1,0 +1,76 @@
+* {
+    font-family: sans-serif;
+}
+
+html {
+    background-color: yellow;
+}
+
+#flex {
+    background-color: purple;
+    color: white;
+    border: 0;
+    border-radius: 10px;
+    padding: 10px 20px;
+    font-weight: bold;
+    border-radius: 100%;
+}
+
+#flex:hover {
+    background-color: lime;
+    transition: 2s;
+    text-transform: uppercase;
+    font-size: 1.2rem;
+}
+
+svg {
+    max-width: 300px;
+    width: 100%;
+    height: auto;
+    overflow: visible !important;
+}
+
+#watering_can {
+    transform: rotate(18deg);
+    transition: 0.2s;
+    transition-timing-function: ease-in;
+}
+
+#flex:hover #watering_can {
+    transform: rotate(0deg)
+}
+
+#plant_scene_4_water {
+    opacity: 0;
+    transition: 0.2s;
+}
+
+#flex:hover #plant_scene_4_water {
+    opacity: 1;
+    transition-delay: 0.2s;
+}
+
+svg #plant_scene_4_water path {
+    animation-duration: 1.4s;
+    animation-fill-mode: both;
+    animation-iteration-count: infinite;
+    animation-name: flash;
+}
+  
+svg #plant_scene_4_water path:nth-of-type(3n+1) {
+    animation-duration: 1.2s;
+}
+  
+svg #plant_scene_4_water path:nth-of-type(3n+2) {
+    animation-duration: 1s;
+}
+
+@keyframes flash {
+    from, 50%, to {
+        opacity: 1;
+    }
+
+    25%, 75% {
+        opacity: 0.5;
+    }
+}

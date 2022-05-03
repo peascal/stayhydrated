@@ -1,28 +1,13 @@
 #include "WiFi.h"
 #include "WebServer.h"
+#include "ESPAsyncWebServer.h"
+#include "SPIFFS.h"
+#include "AsyncJson.h"
+#include "ArduinoJson.h"
 
 #include "Settings.h" 
 
-WebServer server(80);
-
-String SendHTML()
-{
-  String html = "<!DOCTYPE html> <html>\n";
-  html +="<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, user-scalable=no\">\n";
-  html +="<title>Stay hydrated</title>\n";
-  html +="</head>\n";
-  html +="<body>\n";
-  html +="<h1>Stay hydrated</h1>\n";
-  html +="<a href=\"https://github.com/peascal/stayhydrated\">Documentation and Bugs</a>\n";
-  html +="</body>\n";
-  html +="</html>\n";
-  return html;
-}
-
-void handle_OnConnect()
-{
-  server.send(200, "text/html", SendHTML()); 
-}
+AsyncWebServer server(80);
 
 void pumpOn()
 {
@@ -180,76 +165,6 @@ int getMoisture(int id_int)
   return moisture;
 }
 
-void handle_Hydrate()
-{
-  String message;
-  String id;
-
-  id = server.arg("plant");
-
-  String successMessage = hydrate(id.toInt());
-
-  message = "{\"plant\":\"";
-  message += id;
-  message += "\",";
-
-  if (successMessage == "success")
-  {
-    message += "\"status\":\"success\"}";
-  }
-  else
-  {
-    message += "\"status\":\"error\", \"message\": \"";
-    message += successMessage;
-    message += "\"}";
-  }
-
-  server.send(200, "application/json", message);
-}
-
-void handle_Waterlevel()
-{
-  String message;
-  int waterlevel = getWaterLevelInCm();
-
-  if (waterlevel == 0)
-  {
-    // no measurement results
-    message = "{\"status\":\"error\"}";
-  }
-  else
-  {
-    message = "{\"waterlevel\":";
-    message += waterlevel;
-    message += "}";
-  }
-  
-  server.send(200, "application/json", message);
-}
-
-void handle_Moisture()
-{
-  String message;
-  String id;
-
-  id = server.arg("id");
-
-  int moisture = getMoisture(id.toInt());
-
-  if (moisture == 0)
-  {
-    // sensor not found
-    message = "{\"status\":\"error\"}";
-  }
-  else
-  {
-    message = "{\"moisture\":";
-    message += moisture;
-    message += "}";
-  }
-
-  server.send(200, "application/json", message);
-}
 void bigbrain()
 {
   for (int i=1; i<=4; i++)
@@ -266,6 +181,12 @@ void setup()
 {
   Serial.begin(115200);
   Serial.println();
+
+  // Initialize SPIFFS
+  if(!SPIFFS.begin(true)){
+    Serial.println("An Error has occurred while mounting SPIFFS");
+    return;
+  }
 
   pinMode(2, OUTPUT);
   pinMode(PIN_PUMP, OUTPUT);
@@ -302,10 +223,85 @@ void setup()
   Serial.print("Connected, IP address: ");
   Serial.println(WiFi.localIP());
 
-  server.on("/", handle_OnConnect);
-  server.on("/hydrate", handle_Hydrate);
-  server.on("/waterlevel", handle_Waterlevel);
-  server.on("/moisture", handle_Moisture);
+  // Route for root / web page
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(SPIFFS, "/index.html");
+  });
+
+  // Route to load css file
+  server.on("/main.css", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(SPIFFS, "/main.css", "text/css");
+  });
+
+  // Route to load js file
+  server.on("/main.js", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(SPIFFS, "/main.js", "application/javascript");
+  });
+
+  server.on("/hydrate", HTTP_GET, [](AsyncWebServerRequest *request){
+    String id = request->arg("plant");
+    String successMessage = hydrate(id.toInt()); 
+
+    AsyncResponseStream *response = request->beginResponseStream("application/json");
+    DynamicJsonBuffer jsonBuffer;
+    JsonObject &root = jsonBuffer.createObject();
+
+    if (successMessage == "success")
+    {
+      root["status"] = "success";
+    }
+    else 
+    {
+      root["status"] = "error";
+      root["message"] = successMessage;
+    }
+
+    root.printTo(*response);
+    request->send(response);
+  });
+
+  server.on("/waterlevel", HTTP_GET, [](AsyncWebServerRequest *request){
+    int waterlevel = getWaterLevelInCm();
+
+    AsyncResponseStream *response = request->beginResponseStream("application/json");
+    DynamicJsonBuffer jsonBuffer;
+    JsonObject &root = jsonBuffer.createObject();
+
+    if (waterlevel == 0)
+    {
+      root["status"] = "error";
+    }
+    else 
+    {
+      root["status"] = "success";
+      root["waterlevel"] = waterlevel;
+    }
+
+    root.printTo(*response);
+    request->send(response);
+  });
+
+  server.on("/moisture", HTTP_GET, [](AsyncWebServerRequest *request){
+    String id = request->arg("plant");
+    int moisture = getMoisture(id.toInt());
+
+    AsyncResponseStream *response = request->beginResponseStream("application/json");
+    DynamicJsonBuffer jsonBuffer;
+    JsonObject &root = jsonBuffer.createObject();
+
+    if (moisture == 0)
+    {
+      root["status"] = "error";
+    }
+    else 
+    {
+      root["status"] = "success";
+      root["moisture"] = moisture;
+    }
+
+    root.printTo(*response);
+    request->send(response);
+  });
 
   server.begin();
   Serial.println("HTTP server started");
@@ -313,7 +309,5 @@ void setup()
 
 void loop() 
 {
-  server.handleClient();
   bigbrain();
-  
 }
